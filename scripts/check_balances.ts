@@ -5,10 +5,10 @@ dotenv.config();
 
 async function main() {
 
-    const contractAddress = "0xAA04456f31a6177C4CE0Cf2655e034177E873776"
-    const gnosisSafeAddress = "0x855534577263959E57454E4a6462EA32fb1a6E64"
+    const contractAddress = "0xE94E9d573E547DF5B7FCeDA6B03ee279e5B864Ce"
+    const gnosisSafeAddress = "0xAdE751A7A96d7d0c2193BE7cFFFb94799209F31d"
     const provider = new ethers.providers.JsonRpcProvider(process.env.INFURA_URL);
-    const abi =  [
+    const abi = [
       {
         "inputs": [
           {
@@ -72,6 +72,24 @@ async function main() {
             "internalType": "address",
             "name": "gnosisSafe",
             "type": "address"
+          },
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "debtor",
+            "type": "address"
+          },
+          {
+            "indexed": true,
+            "internalType": "address",
+            "name": "creditor",
+            "type": "address"
+          },
+          {
+            "indexed": false,
+            "internalType": "uint256",
+            "name": "amount",
+            "type": "uint256"
           }
         ],
         "name": "SettleCompleted",
@@ -152,11 +170,6 @@ async function main() {
             "internalType": "address[]",
             "name": "members",
             "type": "address[]"
-          },
-          {
-            "internalType": "bool",
-            "name": "settleCompleted",
-            "type": "bool"
           }
         ],
         "stateMutability": "view",
@@ -200,11 +213,6 @@ async function main() {
             "internalType": "address",
             "name": "gnosisSafe",
             "type": "address"
-          },
-          {
-            "internalType": "bool",
-            "name": "settleCompleted",
-            "type": "bool"
           }
         ],
         "stateMutability": "view",
@@ -267,7 +275,7 @@ async function main() {
           },
           {
             "internalType": "uint256",
-            "name": "_amount",
+            "name": "amount",
             "type": "uint256"
           }
         ],
@@ -277,14 +285,14 @@ async function main() {
         "type": "function"
       }
     ]
-    // Crea una instancia del contrato
+    // Create an instance of the contract
     const squaryContract = new ethers.Contract(contractAddress, abi, provider);
-    // Direcciones de los miembros del grupo
-    const members = ["0xFbC66bD8466f7B7628fD32F8a8C07f3976c73979","0x18dd4b2D74D7269Fc68c4da13bE9Bd8CB2b8231B","0x75767610d15FA80425a2BDF6Cd8FCA6444786189","0x724849ca29166a27cA9a2f03A7EA15C0e8687f7A", "0xE5E43E89dfDdaea8408657D9957161e7A50231dE"];
-    // Consulta y muestra los balances
+    // Addresses of the members
+    const members = ["0x18dd4b2D74D7269Fc68c4da13bE9Bd8CB2b8231B","0xceb0dB721150692b9DEDf566Dee240dc38bb1E65","0x75767610d15FA80425a2BDF6Cd8FCA6444786189","0x724849ca29166a27cA9a2f03A7EA15C0e8687f7A"];
+    // balances check the balances
     for (let member of members) {
         let balance = await squaryContract.getMemberBalance(gnosisSafeAddress, member);
-        console.log(`Balance de ${member}: ${balance.toString()}`);
+        console.log(`Balance de ${member}: ${balance.toString()}`); 
     }
 }
 main()

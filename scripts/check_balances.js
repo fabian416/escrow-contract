@@ -305,4 +305,3 @@ main()
     console.error(error);
     process.exit(1);
 });
-//# sourceMappingURL=check_balances.js.map
