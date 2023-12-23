@@ -92,16 +92,16 @@ contract Squary {
       usdcToken.transferFrom(msg.sender, address(this), amount),
       'Token transfer failed'
     );
-    // Aquí asumimos que el monto depositado supera cualquier deuda del miembro.
-    // y actualizamos el balance del miembro en crédito si hay un excedente.
+    // Here we assume that the amount deposited exceeds any debt of the member.
+    // and update the member's credit balance if it exceeds it
     int256 memberDebt = -groups[gnosisSafe].balances[msg.sender];
     int256 depositAmount = int256(amount);
 
     if (depositAmount > memberDebt) {
-      // Si el miembro tenía deuda, se paga y se actualiza su crédito
+      //  If the member had debt, their credit is paid and updated
       groups[gnosisSafe].balances[msg.sender] = depositAmount - memberDebt;
     } else {
-      // Si no, solo se reduce la deuda
+      // If not only reduces the debt
       groups[gnosisSafe].balances[msg.sender] += depositAmount;
     }
     emit DepositMade(gnosisSafe, msg.sender, amount);
