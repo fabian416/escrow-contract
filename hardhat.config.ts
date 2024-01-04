@@ -1,5 +1,5 @@
 import { HardhatUserConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-toolbox";
+require("@nomiclabs/hardhat-waffle");
 import "@nomiclabs/hardhat-ethers";
 import * as dotenv from "dotenv";
 
@@ -15,7 +15,7 @@ const config: HardhatUserConfig = {
         version: "0.8.19"
       }
     ]
-  },  
+  },
   networks: {
     goerli: {
       url: "https://goerli.infura.io/v3/34a2351fd1f941e2b9f06fcb04438029",

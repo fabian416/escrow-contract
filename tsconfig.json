@@ -16,7 +16,7 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["./scripts/**/*.ts", "./test/**/*.ts", "./typechain/**/*.ts"]
+  "include": ["./scripts/**/*.ts", "./test/**/*.ts", "./typechain/**/*.ts", "test/SquaryGroupCreation.test.js"]
 }
 
 
