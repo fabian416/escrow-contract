@@ -135,9 +135,8 @@ contract Squary {
   }
 
   // Internal function to check if an address is a member of a given group.
-  function isMember(
-    address gnosisSafe,
-    address member
+  function isMember(address gnosisSafe,
+  address member
   ) internal view returns (bool) {
     for (uint256 i = 0; i < groups[gnosisSafe].members.length; i++) {
       if (groups[gnosisSafe].members[i] == member) {

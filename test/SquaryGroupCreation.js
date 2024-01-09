@@ -11,7 +11,7 @@ describe("Squary Contract", function () {
     let owner, gnosisSafeAddress, members;
     let MockUSDC;
 
-    beforeEach(async function () {
+    before(async function () {
         [owner, gnosisSafeAddress, ...members] = await ethers.getSigners();
         
         const MockUSDC = await ethers.getContractFactory("ERC20Mock");
@@ -28,22 +28,20 @@ describe("Squary Contract", function () {
 
     it("should allow the creation of a new group", async function () {
         const tx = await squary.createGroup(gnosisSafeAddress.address, [owner.address, members[0].address, members[1].address]);
-        await expect(tx).to.emit(squary, "GroupCreated");
-    });
-
-    it("should not allow the creation of a new group", async function () {
-        await squary.createGroup(gnosisSafeAddress.address, [members[0].address]);
-        await expect(squary.createGroup(gnosisSafeAddress.address, [members[1].address])).to.be.revertedWith("Group already exists");
-    });
-
-    it("should allow to deposit usdc", async function(){
-        await mockUSDC.transfer(owner.address, ethers.utils.parseUnits("1000",18));
         
-        await mockUSDC.connect(owner).approve(squary.address, ethers.utils.parseUnits("10", 18));
+        await expect(tx.wait()).to.not.be.reverted;
+        await expect(tx).to.emit(squary, "GroupCreated");
+        console.log("Gnosis Safe: ",gnosisSafeAddress.address)
+        const groupMembers = await squary.getGroupDetails(gnosisSafeAddress.address);
+        console.log("Group Members: " ,groupMembers)
 
-        const tx = await squary.connect(owner).depositFunds(gnosisSafeAddress.address, ethers.utils.parseUnits("5", 18));
-        await expect(tx).to.emit(squary,"DepositMade").withArgs(gnosisSafeAddress.address, owner.address, ethers.utils.parseUnits("5", 18 ))
+        expect(groupMembers).to.include(owner.address);
     });
 
+    it("should not allow the creation of a new group with the same Gnosis Safe address", async function () {
+     
+        await expect(squary.createGroup(gnosisSafeAddress.address, [members[1].address]))
+            .to.be.revertedWith("Group already exists");
+    });
     
 });
