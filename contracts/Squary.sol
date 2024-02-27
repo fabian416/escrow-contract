@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract Squary {
   IERC20 public immutable usdcToken;
@@ -46,7 +46,7 @@ contract Squary {
   modifier onlyGnosisSafe(address gnosisSafe) {
     require(
       msg.sender == gnosisSafe,
-      'Only Gnosis Safe can call this function'
+      "Only Gnosis Safe can call this function"
     );
     _;
   }
@@ -55,7 +55,7 @@ contract Squary {
   modifier onlyMember(address gnosisSafe) {
     require(
       isMember(gnosisSafe, msg.sender),
-      'Only group member can perform this action'
+      "Only group member can perform this action"
     );
     _;
   }
@@ -72,7 +72,7 @@ contract Squary {
   ) external {
     require(
       groups[_gnosisSafe].gnosisSafe == address(0),
-      'Group already exists'
+      "Group already exists"
     );
 
     Group storage group = groups[_gnosisSafe];
@@ -87,10 +87,10 @@ contract Squary {
     address gnosisSafe,
     uint256 amount
   ) external onlyMember(gnosisSafe) {
-    require(amount > 0, 'You need to deposit some funds');
+    require(amount > 0, "You need to deposit some funds");
     require(
       usdcToken.transferFrom(msg.sender, address(this), amount),
-      'Token transfer failed'
+      "Token transfer failed"
     );
     // Here we assume that the amount deposited exceeds any debt of the member.
     // and update the member's credit balance if it exceeds it
@@ -114,9 +114,9 @@ contract Squary {
   ) external onlyMember(gnosisSafe) {
     require(
       groups[gnosisSafe].balances[msg.sender] >= int256(amount),
-      'Insufficient funds to withdraw'
+      "Insufficient funds to withdraw"
     );
-    require(usdcToken.transfer(msg.sender, amount), 'USDC transfer failed');
+    require(usdcToken.transfer(msg.sender, amount), "USDC transfer failed");
     groups[gnosisSafe].balances[msg.sender] -= int256(amount);
     emit WithdrawalMade(gnosisSafe, msg.sender, amount);
   }
@@ -135,9 +135,8 @@ contract Squary {
   }
 
   // Internal function to check if an address is a member of a given group.
-  function isMember(
-    address gnosisSafe,
-    address member
+  function isMember(address gnosisSafe,
+  address member
   ) internal view returns (bool) {
     for (uint256 i = 0; i < groups[gnosisSafe].members.length; i++) {
       if (groups[gnosisSafe].members[i] == member) {
