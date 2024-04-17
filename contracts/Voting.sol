@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import './Squary.sol';
+import './DebtStruct.sol';
 contract Voting {
   struct Proposal {
     address proposer;
@@ -12,10 +13,12 @@ contract Voting {
     ActionType actionType;
     uint256 newValue;
   }
+
   enum ActionType {
     ChangeThreshold, // Change the voting threshold
     AddMember, // Add a new member
-    RemoveMember // Remove a member
+    RemoveMember, // Remove a member
+    SettleDebts     // Nueva acción para resolver deudas
   }
 
   address[] public members;
@@ -117,9 +120,12 @@ contract Voting {
     require(!proposal.executed, 'Proposal already executed');
     require(isThresholdMet(proposalId), 'Not enough votes to execute proposal');
 
-    bool success;
+    bool success = false;
 
-    if (proposal.actionType == ActionType.AddMember) {
+    if (proposal.actionType == ActionType.SettleDebts) {
+        Debt[] memory debts = squaryContract.getPendingDebts(proposal.groupId);
+        success = squaryContract.settleGroup(proposal.groupId, debts);
+    } else if (proposal.actionType == ActionType.AddMember) {
       success = squaryContract.addGroupMember(
         proposal.groupId,
         address(uint160(proposal.newValue))
@@ -141,5 +147,6 @@ contract Voting {
     proposal.executed = true;
     emit ProposalExecuted(proposalId, proposal.actionType, proposal.newValue);
     activeProposalByGroup[proposal.groupId] = 0;
-  }
+}
+
 }

@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import './Voting.sol';
-
+import './DebtStruct.sol';
 contract Squary {
   Voting public votingContract;
   IERC20 public immutable usdcToken;
@@ -14,13 +14,9 @@ contract Squary {
     uint256 signatureThreshold;
   }
 
-  struct Debt {
-    address debtor;
-    address creditor;
-    uint256 amount;
-  }
-
   mapping(bytes32 => Group) public groups;
+  mapping(bytes32 => Debt[]) public pendingSettlements;
+
 
   event GroupCreated(bytes32 indexed id, address[] members);
   event DepositMade(
@@ -116,31 +112,41 @@ contract Squary {
     group.balances[msg.sender] -= int256(amount);
     emit WithdrawalMade(groupId, msg.sender, amount);
   }
+  function proposeSettlement(bytes32 groupId, Debt[] calldata debts) external onlyMemberOfGroup(groupId) {
+    // Almacenar deudas en espera de ser votadas y resueltas
+    for (uint i = 0; i < debts.length; i++) {
+        pendingSettlements[groupId].push(debts[i]);
+    }
+    // Llamar a Voting para crear una propuesta de acción
+    votingContract.createProposal(groupId, Voting.ActionType.SettleDebts, 0);
+}
 
   function settleGroup(
     bytes32 groupId,
     Debt[] calldata simplifiedDebts
-  ) external onlyMemberOfGroup(groupId) {
+) external onlyVotingContract returns (bool) {
     Group storage group = groups[groupId];
     for (uint256 i = 0; i < simplifiedDebts.length; i++) {
-      Debt memory debt = simplifiedDebts[i];
-      require(
-        isMember(groupId, debt.debtor),
-        'Debtor is not a member of the group'
-      );
-      require(
-        isMember(groupId, debt.creditor),
-        'Creditor is not a member of the group'
-      );
-      require(
-        group.balances[debt.debtor] >= int256(debt.amount),
-        'Debtor does not have enough balance'
-      );
-      group.balances[debt.debtor] -= int256(debt.amount);
-      group.balances[debt.creditor] += int256(debt.amount);
-      emit SettleCompleted(groupId, debt.debtor, debt.creditor, debt.amount);
+        Debt memory debt = simplifiedDebts[i];
+        require(
+            isMember(groupId, debt.debtor),
+            'Debtor is not a member of the group'
+        );
+        require(
+            isMember(groupId, debt.creditor),
+            'Creditor is not a member of the group'
+        );
+        require(
+            group.balances[debt.debtor] >= int256(debt.amount),
+            'Debtor does not have enough balance'
+        );
+        group.balances[debt.debtor] -= int256(debt.amount);
+        group.balances[debt.creditor] += int256(debt.amount);
+        emit SettleCompleted(groupId, debt.debtor, debt.creditor, debt.amount);
     }
-  }
+    return true;
+}
+
 
   // Función auxiliar para encontrar el índice de un miembro dentro de la lista de miembros
   function findMemberIndex(
@@ -209,6 +215,9 @@ contract Squary {
   function getGroupThreshold(bytes32 groupId) public view returns (uint256) {
     return groups[groupId].signatureThreshold;
   }
+  function getPendingDebts(bytes32 groupId) public view returns (Debt[] memory) {
+    return pendingSettlements[groupId];
+}
 
   function getGroupDetails(
     bytes32 groupId
