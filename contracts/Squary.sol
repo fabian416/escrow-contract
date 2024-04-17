@@ -39,11 +39,19 @@ contract Squary {
     address indexed creditor,
     uint256 amount
   );
+  event MemberAdded(bytes32 indexed groupId, address indexed newMember);
+  event MemberRemoved(bytes32 indexed groupId, address indexed member);
+  event ThresholdChanged(bytes32 indexed groupId, uint256 newThreshold);
+
 
   constructor(address _usdcTokenAddress, address votingAddress) {
     usdcToken = IERC20(_usdcTokenAddress);
     votingContract = Voting(votingAddress);
   }
+  modifier onlyVotingContract() {
+    require(msg.sender == address(votingContract), "Unauthorized access");
+    _;
+}
 
   modifier onlyMemberOfGroup(bytes32 groupId) {
     require(
@@ -136,6 +144,48 @@ contract Squary {
       emit SettleCompleted(groupId, debt.debtor, debt.creditor, debt.amount);
     }
   }
+    // Función para eliminar un miembro de un grupo existente.
+function removeGroupMember(bytes32 groupId, address member) public onlyVotingContract {
+    Group storage group = groups[groupId];
+    require(isMember(groupId, member), "Member does not exist");
+
+    int256 index = findMemberIndex(groupId, member);
+    require(index != -1, "Member not found");
+
+    // Mover el último miembro a la posición del miembro a eliminar y luego eliminar el último elemento
+    group.members[uint256(index)] = group.members[group.members.length - 1];
+    group.members.pop();
+
+    emit MemberRemoved(groupId, member);
+}
+
+// Función auxiliar para encontrar el índice de un miembro dentro de la lista de miembros
+function findMemberIndex(bytes32 groupId, address member) internal view returns (int256) {
+    Group storage group = groups[groupId];
+    for (uint256 i = 0; i < group.members.length; i++) {
+        if (group.members[i] == member) {
+            return int256(i);
+        }
+    }
+    return -1; // No encontrado
+}
+
+  // Función para añadir un miembro a un grupo existente.
+function addGroupMember(bytes32 groupId, address newMember) public onlyVotingContract {
+    Group storage group = groups[groupId];
+    require(!isMember(groupId, newMember), "Member already exists");
+    group.members.push(newMember);
+
+    emit MemberAdded(groupId, newMember);
+}
+
+  // Función para cambiar el umbral de firma de un grupo.
+function changeGroupThreshold(bytes32 groupId, uint256 newThreshold) public onlyVotingContract {
+    Group storage group = groups[groupId];
+    group.signatureThreshold = newThreshold;
+
+    emit ThresholdChanged(groupId, newThreshold);
+}
 
   function isMember(
     bytes32 groupId,

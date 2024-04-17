@@ -3,22 +3,22 @@ pragma solidity 0.8.19;
 
 import './Squary.sol';
 contract Voting {
+
   struct Proposal {
-    address proposer;
-    uint256 end; // Timestamp when the proposal ends
-    bool executed;
-    uint256 votesFor;
-    uint256 votesAgainst;
-    ActionType actionType;
-    uint256 newValue; // New value for threshold or participant change
-  }
+        address proposer;
+        uint256 end;
+        bool executed;
+        uint256 votesFor;
+        uint256 votesAgainst;
+        ActionType actionType;
+        uint256 newValue;
+    }
 
   struct GroupVoting {
     uint256 votesFor;
     uint256 voteThreshold;
     address[] members; 
 }
-
 
   enum ActionType {
     ChangeThreshold, // Change the voting threshold
@@ -30,6 +30,8 @@ contract Voting {
   Squary public squaryContract;
   uint256 public voteThreshold;
   uint256 public proposalCount;
+  uint256 public activeProposalId; // ID de la propuesta activa
+  bool public isProposalActive; // Indica si hay una propuesta en curso
 
   mapping(uint256 => mapping(address => bool)) public hasVoted;
   mapping(uint256 => Proposal) public proposals;
@@ -66,22 +68,21 @@ contract Voting {
     return group.votesFor > group.voteThreshold;
   }
 
-  function createProposal(
-    ActionType actionType,
-    uint256 newValue
-  ) public onlyMember {
-    proposals[proposalCount] = Proposal({
-      proposer: msg.sender,
-      end: block.timestamp + 1 days, // Voting duration of 1 day
-      executed: false,
-      votesFor: 0,
-      votesAgainst: 0,
-      actionType: actionType,
-      newValue: newValue
-    });
-    emit ProposalCreated(proposalCount, actionType, newValue);
-    proposalCount++;
-  }
+  function createProposal(ActionType actionType, uint256 newValue) public {
+        require(!isProposalActive, "There is already an active proposal.");
+        uint256 proposalId = activeProposalId++;
+        proposals[proposalId] = Proposal({
+            proposer: msg.sender,
+            end: block.timestamp + 1 days,
+            executed: false,
+            votesFor: 0,
+            votesAgainst: 0,
+            actionType: actionType,
+            newValue: newValue
+        });
+        isProposalActive = true;
+        emit ProposalCreated(proposalId, actionType, newValue);
+    }
 
   function vote(uint256 proposalId, bool support) public onlyMember {
     Proposal storage proposal = proposals[proposalId];
@@ -106,16 +107,24 @@ contract Voting {
       'Not enough votes to execute proposal'
     );
 
+    // Ejecutar la acción dependiendo del tipo de propuesta
     if (proposal.actionType == ActionType.ChangeThreshold) {
-      voteThreshold = proposal.newValue;
+        voteThreshold = proposal.newValue;
     } else if (proposal.actionType == ActionType.AddMember) {
-      members.push(address(uint160(proposal.newValue))); // Cast uint to address
+        members.push(address(uint160(proposal.newValue))); // Cast uint to address
     } else if (proposal.actionType == ActionType.RemoveMember) {
-      removeMember(address(uint160(proposal.newValue)));
+        removeMember(address(uint160(proposal.newValue)));
     }
+
+    // Marcar la propuesta como ejecutada
     proposal.executed = true;
+
+    // Emitir evento de propuesta ejecutada
     emit ProposalExecuted(proposalId, proposal.actionType, proposal.newValue);
-  }
+
+    // Desactivar la bandera de propuesta activa, permitiendo nuevas propuestas
+    isProposalActive = false;
+}
 
   function isMember(address user) public view returns (bool) {
     for (uint256 i = 0; i < members.length; i++) {
