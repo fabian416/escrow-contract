@@ -17,6 +17,7 @@ contract SquaryV2 {
     mapping(address => int256) balances;
     uint256 signatureThreshold;
     uint256 nonce;
+    address tokenAddress;
   }
 
   struct Debt {
@@ -85,20 +86,23 @@ contract SquaryV2 {
         return int256(i);
       }
     }
-    return -1; // No encontrado
+    return -1; // not found
   }
 
   function createGroup(
     address[] memory _members,
-    uint256 _signatureThreshold
+    uint256 _signatureThreshold,
+    address _tokenAddress
   ) external {
     bytes32 groupId = generateUniqueID(msg.sender, block.timestamp, _members);
+    require(_tokenAddress != address(0), 'Invalid token address');
     require(groups[groupId].id == 0, 'Group already exists');
 
     Group storage group = groups[groupId];
     group.id = groupId;
     group.members = _members;
     group.signatureThreshold = _signatureThreshold;
+    group.tokenAddress = _tokenAddress;
 
     emit GroupCreated(groupId, _members);
   }
@@ -108,11 +112,15 @@ contract SquaryV2 {
     uint256 amount
   ) external onlyMemberOfGroup(groupId) {
     require(amount > 0, 'You need to deposit some funds');
+
+    Group storage group = groups[groupId];
+    IERC20 token = IERC20(group.tokenAddress); // Utilizar el token especificado por el grupo
+
     require(
-      usdcToken.transferFrom(msg.sender, address(this), amount),
+      token.transferFrom(msg.sender, address(this), amount),
       'Token transfer failed'
     );
-    Group storage group = groups[groupId];
+
     int256 memberDebt = -group.balances[msg.sender];
     int256 depositAmount = int256(amount);
     if (depositAmount > memberDebt) {
@@ -132,7 +140,10 @@ contract SquaryV2 {
       group.balances[msg.sender] >= int256(amount),
       'Insufficient funds to withdraw'
     );
-    require(usdcToken.transfer(msg.sender, amount), 'USDC transfer failed');
+
+    IERC20 token = IERC20(group.tokenAddress);
+
+    require(token.transfer(msg.sender, amount), 'Token transfer failed');
     group.balances[msg.sender] -= int256(amount);
     emit WithdrawalMade(groupId, msg.sender, amount);
   }
@@ -148,7 +159,6 @@ contract SquaryV2 {
       'Insufficient signatures'
     );
 
-    // Crear el hash de la acción usando `abi.encode()` en lugar de `abi.encodePacked()`
     bytes32 actionHash = keccak256(
       abi.encode(groupId, debts, 'settleDebts', groups[groupId].nonce)
     );
@@ -189,13 +199,13 @@ contract SquaryV2 {
     address newMember,
     bytes[] calldata signatures
   ) public {
-    // Construir el hash de la acción
+    // BUild the hash of the action
     bytes32 actionHash = keccak256(
       abi.encode(groupId, 'AddMember', newMember, groups[groupId].nonce)
     );
-    // Verificar las firmas
+    //  Verify the signs
     verifySignatures(actionHash, signatures, groupId);
-    // Incrementar el nonce para asegurar la unicidad de la próxima operación
+    // Increment the nonce to make sure the unicity of the next operation
     groups[groupId].nonce++;
 
     Group storage group = groups[groupId];
@@ -209,28 +219,25 @@ contract SquaryV2 {
     address member,
     bytes[] calldata signatures
   ) public {
-    // Construir el hash de la acción utilizando `abi.encode` para mejorar la consistencia
     bytes32 actionHash = keccak256(
       abi.encode(groupId, 'RemoveMember', member, groups[groupId].nonce)
     );
 
-    // Verificar las firmas
+    // Verify the signs
     verifySignatures(actionHash, signatures, groupId);
 
-    // Incrementar el nonce para asegurar la unicidad de la próxima operación
     groups[groupId].nonce++;
 
-    // Proceder a eliminar al miembro si todas las comprobaciones son correctas
+    // Execute and remove the member if exist
     Group storage group = groups[groupId];
     int256 index = findMemberIndex(groupId, member);
     require(index != -1, 'Member not found');
 
-    // Eliminar al miembro y ajustar el array de miembros
+    // Delete the member from the group
     address lastMember = group.members[group.members.length - 1];
     group.members[uint256(index)] = lastMember;
     group.members.pop();
 
-    // Emitir evento para notificar la remoción
     emit MemberRemoved(groupId, member);
   }
 
@@ -239,7 +246,6 @@ contract SquaryV2 {
     uint256 newThreshold,
     bytes[] calldata signatures
   ) public {
-    // Construir el hash de la acción utilizando `abi.encode` para mayor consistencia y seguridad
     bytes32 actionHash = keccak256(
       abi.encode(
         groupId,
@@ -249,17 +255,14 @@ contract SquaryV2 {
       )
     );
 
-    // Verificar las firmas antes de proceder
     verifySignatures(actionHash, signatures, groupId);
 
-    // Incrementar el nonce para asegurar la unicidad de la próxima operación
     groups[groupId].nonce++;
 
-    // Modificar el umbral de firmas en el grupo
+    // Modify the signature threshold
     Group storage group = groups[groupId];
     group.signatureThreshold = newThreshold;
 
-    // Emitir evento para notificar el cambio
     emit ThresholdChanged(groupId, newThreshold);
   }
 
