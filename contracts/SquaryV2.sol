@@ -2,20 +2,32 @@
 pragma solidity 0.8.19;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-import './Voting.sol';
-import './DebtStruct.sol';
-contract Squary {
-  Voting public votingContract;
+import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
+
+contract SquaryV2 {
+  using ECDSA for bytes32;
+
   IERC20 public immutable usdcToken;
+  IERC20 public immutable usdtToken;
+  IERC20 public immutable daiToken;
+
   struct Group {
     bytes32 id;
     address[] members;
     mapping(address => int256) balances;
     uint256 signatureThreshold;
+    uint256 nonce;
+  }
+
+  struct Debt {
+    address debtor;
+    address creditor;
+    uint256 amount;
   }
 
   mapping(bytes32 => Group) public groups;
   mapping(bytes32 => Debt[]) public pendingSettlements;
+  mapping(bytes32 => uint256) public nonces;
 
   event GroupCreated(bytes32 indexed id, address[] members);
   event DepositMade(
@@ -38,13 +50,14 @@ contract Squary {
   event MemberRemoved(bytes32 indexed groupId, address indexed member);
   event ThresholdChanged(bytes32 indexed groupId, uint256 newThreshold);
 
-  constructor(address _usdcTokenAddress, address votingAddress) {
+  constructor(
+    address _usdcTokenAddress,
+    address _usdtTokenAddress,
+    address _daitokenAddress
+  ) {
     usdcToken = IERC20(_usdcTokenAddress);
-    votingContract = Voting(votingAddress);
-  }
-  modifier onlyVotingContract() {
-    require(msg.sender == address(votingContract), 'Unauthorized access');
-    _;
+    usdtToken = IERC20(_usdtTokenAddress);
+    daiToken = IERC20(_daitokenAddress);
   }
 
   modifier onlyMemberOfGroup(bytes32 groupId) {
@@ -61,6 +74,18 @@ contract Squary {
     address[] memory members
   ) private pure returns (bytes32) {
     return keccak256(abi.encodePacked(creator, timestamp, members));
+  }
+  function findMemberIndex(
+    bytes32 groupId,
+    address member
+  ) internal view returns (int256) {
+    Group storage group = groups[groupId];
+    for (uint256 i = 0; i < group.members.length; i++) {
+      if (group.members[i] == member) {
+        return int256(i);
+      }
+    }
+    return -1; // No encontrado
   }
 
   function createGroup(
@@ -111,94 +136,131 @@ contract Squary {
     group.balances[msg.sender] -= int256(amount);
     emit WithdrawalMade(groupId, msg.sender, amount);
   }
-  function proposeSettlement(
-    bytes32 groupId,
-    Debt[] calldata debts
-  ) external onlyMemberOfGroup(groupId) {
-    // Almacenar deudas en espera de ser votadas y resueltas
-    for (uint i = 0; i < debts.length; i++) {
-      pendingSettlements[groupId].push(debts[i]);
-    }
-    // Llamar a Voting para crear una propuesta de acción
-    votingContract.createProposal(groupId, Voting.ActionType.SettleDebts, 0);
-  }
 
-  function settleGroup(
+  function settleDebtsWithSignatures(
     bytes32 groupId,
-    Debt[] calldata simplifiedDebts
-  ) external onlyVotingContract returns (bool) {
-    Group storage group = groups[groupId];
-    for (uint256 i = 0; i < simplifiedDebts.length; i++) {
-      Debt memory debt = simplifiedDebts[i];
+    Debt[] calldata debts,
+    bytes[] calldata signatures
+  ) external {
+    require(groups[groupId].id != 0, 'Group does not exist');
+    require(
+      signatures.length >= groups[groupId].signatureThreshold,
+      'Insufficient signatures'
+    );
+
+    // Crear el hash de la acción usando `abi.encode()` en lugar de `abi.encodePacked()`
+    bytes32 actionHash = keccak256(
+      abi.encode(groupId, debts, 'settleDebts', groups[groupId].nonce)
+    );
+
+    verifySignatures(actionHash, signatures, groupId);
+
+    groups[groupId].nonce++;
+
+    // Execute the settlement
+    for (uint256 i = 0; i < debts.length; i++) {
+      Debt memory debt = debts[i];
       require(
-        isMember(groupId, debt.debtor),
-        'Debtor is not a member of the group'
+        isMember(groupId, debt.debtor) && isMember(groupId, debt.creditor),
+        'Invalid member addresses'
       );
-      require(
-        isMember(groupId, debt.creditor),
-        'Creditor is not a member of the group'
-      );
-      require(
-        group.balances[debt.debtor] >= int256(debt.amount),
-        'Debtor does not have enough balance'
-      );
-      group.balances[debt.debtor] -= int256(debt.amount);
-      group.balances[debt.creditor] += int256(debt.amount);
+      groups[groupId].balances[debt.debtor] -= int256(debt.amount);
+      groups[groupId].balances[debt.creditor] += int256(debt.amount);
       emit SettleCompleted(groupId, debt.debtor, debt.creditor, debt.amount);
     }
-    return true;
   }
 
-  // Función auxiliar para encontrar el índice de un miembro dentro de la lista de miembros
-  function findMemberIndex(
-    bytes32 groupId,
-    address member
-  ) internal view returns (int256) {
-    Group storage group = groups[groupId];
-    for (uint256 i = 0; i < group.members.length; i++) {
-      if (group.members[i] == member) {
-        return int256(i);
-      }
+  function verifySignatures(
+    bytes32 actionHash,
+    bytes[] calldata signatures,
+    bytes32 groupId
+  ) internal view {
+    require(
+      signatures.length >= groups[groupId].signatureThreshold,
+      'Insufficient signatures'
+    );
+    for (uint256 i = 0; i < signatures.length; i++) {
+      address signer = ECDSA.recover(actionHash, signatures[i]);
+      require(isMember(groupId, signer), 'Signer is not a member of the group');
     }
-    return -1; // No encontrado
   }
-
   function addGroupMember(
     bytes32 groupId,
-    address newMember
-  ) public onlyVotingContract returns (bool) {
+    address newMember,
+    bytes[] calldata signatures
+  ) public {
+    // Construir el hash de la acción
+    bytes32 actionHash = keccak256(
+      abi.encode(groupId, 'AddMember', newMember, groups[groupId].nonce)
+    );
+    // Verificar las firmas
+    verifySignatures(actionHash, signatures, groupId);
+    // Incrementar el nonce para asegurar la unicidad de la próxima operación
+    groups[groupId].nonce++;
+
     Group storage group = groups[groupId];
-    if (isMember(groupId, newMember)) {
-      return false; // El miembro ya existe
-    }
+    require(!isMember(groupId, newMember), 'Member already exists');
     group.members.push(newMember);
     emit MemberAdded(groupId, newMember);
-    return true;
   }
+
   function removeGroupMember(
     bytes32 groupId,
-    address member
-  ) public onlyVotingContract returns (bool) {
+    address member,
+    bytes[] calldata signatures
+  ) public {
+    // Construir el hash de la acción utilizando `abi.encode` para mejorar la consistencia
+    bytes32 actionHash = keccak256(
+      abi.encode(groupId, 'RemoveMember', member, groups[groupId].nonce)
+    );
+
+    // Verificar las firmas
+    verifySignatures(actionHash, signatures, groupId);
+
+    // Incrementar el nonce para asegurar la unicidad de la próxima operación
+    groups[groupId].nonce++;
+
+    // Proceder a eliminar al miembro si todas las comprobaciones son correctas
     Group storage group = groups[groupId];
     int256 index = findMemberIndex(groupId, member);
-    if (index == -1) {
-      return false; // Miembro no encontrado
-    }
+    require(index != -1, 'Member not found');
+
+    // Eliminar al miembro y ajustar el array de miembros
     address lastMember = group.members[group.members.length - 1];
     group.members[uint256(index)] = lastMember;
     group.members.pop();
+
+    // Emitir evento para notificar la remoción
     emit MemberRemoved(groupId, member);
-    return true;
   }
 
   function changeGroupThreshold(
     bytes32 groupId,
-    uint256 newThreshold
-  ) public onlyVotingContract returns (bool) {
+    uint256 newThreshold,
+    bytes[] calldata signatures
+  ) public {
+    // Construir el hash de la acción utilizando `abi.encode` para mayor consistencia y seguridad
+    bytes32 actionHash = keccak256(
+      abi.encode(
+        groupId,
+        'ChangeThreshold',
+        newThreshold,
+        groups[groupId].nonce
+      )
+    );
+
+    // Verificar las firmas antes de proceder
+    verifySignatures(actionHash, signatures, groupId);
+
+    // Incrementar el nonce para asegurar la unicidad de la próxima operación
+    groups[groupId].nonce++;
+
+    // Modificar el umbral de firmas en el grupo
     Group storage group = groups[groupId];
     group.signatureThreshold = newThreshold;
+
+    // Emitir evento para notificar el cambio
     emit ThresholdChanged(groupId, newThreshold);
-    return true;
   }
 
   function isMember(
@@ -213,15 +275,10 @@ contract Squary {
     }
     return false;
   }
+
   function getGroupThreshold(bytes32 groupId) public view returns (uint256) {
     return groups[groupId].signatureThreshold;
   }
-  function getPendingDebts(
-    bytes32 groupId
-  ) public view returns (Debt[] memory) {
-    return pendingSettlements[groupId];
-  }
-
   function getGroupDetails(
     bytes32 groupId
   ) public view returns (address[] memory members) {

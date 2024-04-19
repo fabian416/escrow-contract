@@ -18,7 +18,7 @@ contract Voting {
     ChangeThreshold, // Change the voting threshold
     AddMember, // Add a new member
     RemoveMember, // Remove a member
-    SettleDebts     // Nueva acción para resolver deudas
+    SettleDebts // Nueva acción para resolver deudas
   }
 
   address[] public members;
@@ -123,8 +123,8 @@ contract Voting {
     bool success = false;
 
     if (proposal.actionType == ActionType.SettleDebts) {
-        Debt[] memory debts = squaryContract.getPendingDebts(proposal.groupId);
-        success = squaryContract.settleGroup(proposal.groupId, debts);
+      Debt[] memory debts = squaryContract.getPendingDebts(proposal.groupId);
+      success = squaryContract.settleGroup(proposal.groupId, debts);
     } else if (proposal.actionType == ActionType.AddMember) {
       success = squaryContract.addGroupMember(
         proposal.groupId,
@@ -147,6 +147,5 @@ contract Voting {
     proposal.executed = true;
     emit ProposalExecuted(proposalId, proposal.actionType, proposal.newValue);
     activeProposalByGroup[proposal.groupId] = 0;
-}
-
+  }
 }
