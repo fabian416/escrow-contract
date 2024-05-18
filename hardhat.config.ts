@@ -11,12 +11,18 @@ const config: HardhatUserConfig = {
     ]
   },
   networks: {
-    mumbai: {
-      url: "https://rpc-mumbai.maticvigil.com",
+    Amoy: {
+      url: "https://rpc-amoy.polygon.technology/",
       accounts: process.env.PRIVATE_KEY1 ? [process.env.PRIVATE_KEY1] : [],
+      chainId: 80002
     },
-  },
-};
+    PolygonMainnet: { 
+      url: "https://polygon-rpc.com/", // public endpoint
+      accounts: process.env.PRIVATE_KEY1 ? [process.env.PRIVATE_KEY1] : [],
+      chainId: 137, // ID Polygon official chain
+    },
+  }
+}
 
 export default config;
 
