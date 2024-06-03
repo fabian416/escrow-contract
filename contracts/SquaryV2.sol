@@ -29,33 +29,59 @@ contract SquaryV2 {
 
   mapping(bytes32 => Group) public groups;
   mapping(bytes32 => Debt[]) public pendingSettlements;
-  mapping(bytes32 => uint256) public nonces;
   bytes32[] public groupIds;
 
   event GroupCreated(bytes32 indexed id, string name, address[] members);
-  event DepositMade(bytes32 indexed groupId, address indexed member, uint256 amount);
-  event WithdrawalMade(bytes32 indexed groupId, address indexed member, uint256 amount);
-  event SettleCompleted(bytes32 indexed groupId, address indexed debtor, address indexed creditor, uint256 amount);
+  event DepositMade(
+    bytes32 indexed groupId,
+    address indexed member,
+    uint256 amount
+  );
+  event WithdrawalMade(
+    bytes32 indexed groupId,
+    address indexed member,
+    uint256 amount
+  );
+  event SettleCompleted(
+    bytes32 indexed groupId,
+    address indexed debtor,
+    address indexed creditor,
+    uint256 amount
+  );
   event MemberAdded(bytes32 indexed groupId, address indexed newMember);
   event MemberRemoved(bytes32 indexed groupId, address indexed member);
   event ThresholdChanged(bytes32 indexed groupId, uint256 newThreshold);
 
-  constructor(address _usdcTokenAddress, address _usdtTokenAddress, address _daitokenAddress) {
+  constructor(
+    address _usdcTokenAddress,
+    address _usdtTokenAddress,
+    address _daitokenAddress
+  ) {
     usdcToken = IERC20(_usdcTokenAddress);
     usdtToken = IERC20(_usdtTokenAddress);
     daiToken = IERC20(_daitokenAddress);
   }
 
   modifier onlyMemberOfGroup(bytes32 groupId) {
-    require(isMember(groupId, msg.sender), 'Caller is not a member of the group');
+    require(
+      isMember(groupId, msg.sender),
+      'Caller is not a member of the group'
+    );
     _;
   }
 
-  function generateUniqueID(address creator, uint256 timestamp, address[] memory members) private pure returns (bytes32) {
+  function generateUniqueID(
+    address creator,
+    uint256 timestamp,
+    address[] memory members
+  ) private pure returns (bytes32) {
     return keccak256(abi.encodePacked(creator, timestamp, members));
   }
 
-  function findMemberIndex(bytes32 groupId, address member) internal view returns (int256) {
+  function findMemberIndex(
+    bytes32 groupId,
+    address member
+  ) internal view returns (int256) {
     Group storage group = groups[groupId];
     for (uint256 i = 0; i < group.members.length; i++) {
       if (group.members[i] == member) {
@@ -65,7 +91,7 @@ contract SquaryV2 {
     return -1; // not found
   }
 
-   function createGroup(
+  function createGroup(
     string memory _name,
     address[] memory _members,
     uint256 _signatureThreshold,
@@ -86,13 +112,19 @@ contract SquaryV2 {
 
     emit GroupCreated(groupId, _name, _members);
   }
-  function depositFunds(bytes32 groupId, uint256 amount) external onlyMemberOfGroup(groupId) {
+  function depositFunds(
+    bytes32 groupId,
+    uint256 amount
+  ) external onlyMemberOfGroup(groupId) {
     require(amount > 0, 'You need to deposit some funds');
 
     Group storage group = groups[groupId];
     IERC20 token = IERC20(group.tokenAddress); // Use the token settle by the group
 
-    require(token.transferFrom(msg.sender, address(this), amount), 'Token transfer failed');
+    require(
+      token.transferFrom(msg.sender, address(this), amount),
+      'Token transfer failed'
+    );
 
     int256 memberDebt = -group.balances[msg.sender];
     int256 depositAmount = int256(amount);
@@ -104,9 +136,15 @@ contract SquaryV2 {
     emit DepositMade(groupId, msg.sender, amount);
   }
 
-  function withdrawFunds(bytes32 groupId, uint256 amount) external onlyMemberOfGroup(groupId) {
+  function withdrawFunds(
+    bytes32 groupId,
+    uint256 amount
+  ) external onlyMemberOfGroup(groupId) {
     Group storage group = groups[groupId];
-    require(group.balances[msg.sender] >= int256(amount), 'Insufficient funds to withdraw');
+    require(
+      group.balances[msg.sender] >= int256(amount),
+      'Insufficient funds to withdraw'
+    );
 
     IERC20 token = IERC20(group.tokenAddress);
 
@@ -121,11 +159,13 @@ contract SquaryV2 {
 
     bytes32 actionHash = keccak256(abi.encode(groupId, debts, 'settleDebts', groups[groupId].nonce));
 
-    verifySignatures(actionHash, signatures, groupId);
+    for (uint256 i = 0; i < signatures.length; i++) {
+      address signer = ECDSA.recover(actionHash, signatures[i]);
+      require(isMember(groupId, signer), 'Signer is not a member of the group');
+    }
 
     groups[groupId].nonce++;
 
-    // Execute the settlement
     for (uint256 i = 0; i < debts.length; i++) {
       Debt memory debt = debts[i];
       require(isMember(groupId, debt.debtor) && isMember(groupId, debt.creditor), 'Invalid member addresses');
@@ -135,20 +175,21 @@ contract SquaryV2 {
     }
   }
 
-  function verifySignatures(bytes32 actionHash, bytes[] calldata signatures, bytes32 groupId) internal view {
-    require(signatures.length >= groups[groupId].signatureThreshold, 'Insufficient signatures');
+  function addGroupMember(
+    bytes32 groupId,
+    address newMember,
+    bytes[] calldata signatures
+  ) public {
+    // Build the hash of the action
+    bytes32 actionHash = keccak256(
+      abi.encode(groupId, 'AddMember', newMember, groups[groupId].nonce)
+    );
+
     for (uint256 i = 0; i < signatures.length; i++) {
       address signer = ECDSA.recover(actionHash, signatures[i]);
       require(isMember(groupId, signer), 'Signer is not a member of the group');
     }
-  }
 
-  function addGroupMember(bytes32 groupId, address newMember, bytes[] calldata signatures) public {
-    // Build the hash of the action
-    bytes32 actionHash = keccak256(abi.encode(groupId, 'AddMember', newMember, groups[groupId].nonce));
-    // Verify the signatures
-    verifySignatures(actionHash, signatures, groupId);
-    // Increment the nonce to ensure the uniqueness of the next operation
     groups[groupId].nonce++;
 
     Group storage group = groups[groupId];
@@ -157,11 +198,19 @@ contract SquaryV2 {
     emit MemberAdded(groupId, newMember);
   }
 
-  function removeGroupMember(bytes32 groupId, address member, bytes[] calldata signatures) public {
-    bytes32 actionHash = keccak256(abi.encode(groupId, 'RemoveMember', member, groups[groupId].nonce));
+  function removeGroupMember(
+    bytes32 groupId,
+    address member,
+    bytes[] calldata signatures
+  ) public {
+    bytes32 actionHash = keccak256(
+      abi.encode(groupId, 'RemoveMember', member, groups[groupId].nonce)
+    );
 
-    // Verify the signatures
-    verifySignatures(actionHash, signatures, groupId);
+    for (uint256 i = 0; i < signatures.length; i++) {
+      address signer = ECDSA.recover(actionHash, signatures[i]);
+      require(isMember(groupId, signer), 'Signer is not a member of the group');
+    }
 
     groups[groupId].nonce++;
 
@@ -178,10 +227,24 @@ contract SquaryV2 {
     emit MemberRemoved(groupId, member);
   }
 
-  function changeGroupThreshold(bytes32 groupId, uint256 newThreshold, bytes[] calldata signatures) public {
-    bytes32 actionHash = keccak256(abi.encode(groupId, 'ChangeThreshold', newThreshold, groups[groupId].nonce));
+  function changeGroupThreshold(
+    bytes32 groupId,
+    uint256 newThreshold,
+    bytes[] calldata signatures
+  ) public {
+    bytes32 actionHash = keccak256(
+      abi.encode(
+        groupId,
+        'ChangeThreshold',
+        newThreshold,
+        groups[groupId].nonce
+      )
+    );
 
-    verifySignatures(actionHash, signatures, groupId);
+    for (uint256 i = 0; i < signatures.length; i++) {
+      address signer = ECDSA.recover(actionHash, signatures[i]);
+      require(isMember(groupId, signer), 'Signer is not a member of the group');
+    }
 
     groups[groupId].nonce++;
 
@@ -192,7 +255,10 @@ contract SquaryV2 {
     emit ThresholdChanged(groupId, newThreshold);
   }
 
-  function isMember(bytes32 groupId, address member) public view returns (bool) {
+  function isMember(
+    bytes32 groupId,
+    address member
+  ) public view returns (bool) {
     Group storage group = groups[groupId];
     for (uint i = 0; i < group.members.length; i++) {
       if (group.members[i] == member) {
@@ -206,12 +272,17 @@ contract SquaryV2 {
     return groups[groupId].signatureThreshold;
   }
 
-  function getGroupDetails(bytes32 groupId) public view returns (string memory name, address[] memory members) {
+  function getGroupDetails(
+    bytes32 groupId
+  ) public view returns (string memory name, address[] memory members) {
     Group storage group = groups[groupId];
     return (group.name, group.members);
   }
 
-  function getMemberBalance(bytes32 groupId, address member) public view returns (int256) {
+  function getMemberBalance(
+    bytes32 groupId,
+    address member
+  ) public view returns (int256) {
     return groups[groupId].balances[member];
   }
 
