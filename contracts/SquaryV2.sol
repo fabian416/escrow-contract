@@ -6,6 +6,7 @@ import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 
 contract SquaryV2 {
   using ECDSA for bytes32;
+  uint256 public groupCounter;
 
   IERC20 public immutable usdcToken;
   IERC20 public immutable usdtToken;
@@ -70,12 +71,8 @@ contract SquaryV2 {
     _;
   }
 
-  function generateUniqueID(
-    address creator,
-    uint256 timestamp,
-    address[] memory members
-  ) private pure returns (bytes32) {
-    return keccak256(abi.encodePacked(creator, timestamp, members));
+  function generateUniqueID(address creator, uint256 counter, address[] memory members) private pure returns (bytes32) {
+    return keccak256(abi.encodePacked(creator, counter, members));
   }
 
   function findMemberIndex(
@@ -91,13 +88,8 @@ contract SquaryV2 {
     return -1; // not found
   }
 
-  function createGroup(
-    string memory _name,
-    address[] memory _members,
-    uint256 _signatureThreshold,
-    address _tokenAddress
-  ) external {
-    bytes32 groupId = generateUniqueID(msg.sender, block.timestamp, _members);
+  function createGroup(string memory _name, address[] memory _members, uint256 _signatureThreshold, address _tokenAddress) external {
+    bytes32 groupId = generateUniqueID(msg.sender, groupCounter, _members);
     require(_tokenAddress != address(0), 'Invalid token address');
     require(groups[groupId].id == 0, 'Group already exists');
 
@@ -108,10 +100,12 @@ contract SquaryV2 {
     group.tokenAddress = _tokenAddress;
     group.name = _name;
 
-    groupIds.push(groupId); // Añadir el ID del grupo al array
+    groupIds.push(groupId);
+    groupCounter++;
 
     emit GroupCreated(groupId, _name, _members);
   }
+
   function depositFunds(
     bytes32 groupId,
     uint256 amount

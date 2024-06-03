@@ -5,12 +5,12 @@ async function main() {
     const [signer] = await ethers.getSigners();
     const abi = [
         "function settleDebtsWithSignatures(bytes32 groupId, (address debtor, address creditor, uint256 amount)[] debts, bytes[] signatures) public",
-        "function getGroupMembers(bytes32 groupId) public view returns (address[] memory)"
+        "function getGroupDetails(bytes32 groupId) public view returns (string, address[])"
     ];
 
     const contract = new ethers.Contract(contractAddress, abi, signer);
 
-    const groupId = "0xca615fb1b393ad404e7ff1dfb202fc27fd39a7314d2956a94109363585e22572";
+    const groupId = "0xaee43af420f0192b9efff577670c0faa0b8b13fa379f32a44c2cc529a5148de1";
     const debts = [
         {
             debtor: "0x724849ca29166a27cA9a2f03A7EA15C0e8687f7A",
@@ -25,7 +25,8 @@ async function main() {
     ];
 
     try {
-        const groupMembers = await contract.getGroupMembers(groupId);
+        const [groupName, groupMembers] = await contract.getGroupDetails(groupId);
+        console.log("Group Name:", groupName);
         console.log("Group Members:", groupMembers);
 
         const actionHash = ethers.keccak256(
@@ -38,7 +39,10 @@ async function main() {
 
         const allSignersAreMembers = signatures.every(signature => {
             const signerAddress = ethers.verifyMessage(ethers.getBytes(actionHash), signature);
-            return groupMembers.includes(signerAddress);
+            console.log("Signer Address:", signerAddress);
+            const isMember = groupMembers.includes(signerAddress);
+            console.log("Is Member:", isMember);
+            return isMember;
         });
 
         if (!allSignersAreMembers) {
