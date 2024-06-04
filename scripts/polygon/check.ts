@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat';
 
 async function verifyGroupDetails(groupId) {
-    const contractAddress = "0xAB2BD4A1871b1c7D782dB410292cC8e645955352";
+    const contractAddress = "0xa02676e00e8C53528e0F984075A0AE732D7340f9";
     const [signer] = await ethers.getSigners();
     const abi = [
         "function getGroupDetails(bytes32 groupId) public view returns (string memory name, address[] memory members)"

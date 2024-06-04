@@ -1,8 +1,12 @@
 import { ethers } from 'hardhat';
 
 async function proposeSettle(groupId: string, groupMembers: string[]) {
-    const contractAddress = "0x9eDFb6e3203c404Fb8199ad1f8866eD5Cad2be5A";
+    const contractAddress = "0xa02676e00e8C53528e0F984075A0AE732D7340f9";
     const [signer] = await ethers.getSigners();
+
+    // Aquí debes proporcionar la clave privada de la segunda dirección
+    const secondarySigner = new ethers.Wallet("", ethers.provider);
+    
     const abi = [
         "function settleDebtsWithSignatures(bytes32 groupId, (address debtor, address creditor, uint256 amount)[] debts, bytes[] signatures) public",
         "function getGroupDetails(bytes32 groupId) public view returns (string, address[])"
@@ -27,8 +31,7 @@ async function proposeSettle(groupId: string, groupMembers: string[]) {
     console.log("Action Hash:", actionHash);
 
     const signature1 = await signer.signMessage(ethers.getBytes(actionHash));
-    // Assume you get signature2 from the other group member externally
-    const signature2 = "0x817ab564af6b35616d3978d18c98bade8275082f8654047c3ea00ff55a2ca5cc60ee841013fa19430d428250f75c82a723ff5f73dc8aa5b308b62bc8d26cc1231c"; // Example
+    const signature2 = await secondarySigner.signMessage(ethers.getBytes(actionHash));
 
     const signatures = [signature1, signature2];
 
@@ -57,7 +60,7 @@ async function proposeSettle(groupId: string, groupMembers: string[]) {
     }
 }
 
-proposeSettle("0xaee43af420f0192b9efff577670c0faa0b8b13fa379f32a44c2cc529a5148de1", ["0xFbC66bD8466f7B7628fD32F8a8C07f3976c73979", "0x724849ca29166a27cA9a2f03A7EA15C0e8687f7A"])
+proposeSettle("0x6019552f31df322c6be9d49a43bd2d384f3465277bcbe4aaee31d9e6a6fa856d", ["0xFbC66bD8466f7B7628fD32F8a8C07f3976c73979", "0x724849ca29166a27cA9a2f03A7EA15C0e8687f7A"])
     .then(() => process.exit(0))
     .catch((error) => {
         console.error(error);

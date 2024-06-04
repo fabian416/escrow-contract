@@ -12,13 +12,13 @@ async function createGroup() {
 
     const contract = new ethers.Contract(contractAddress, abi, signer);
 
-    const groupName = "Jujuy2";
+    const groupName = "Jujuy25";
     const groupMembers = ["0xFbC66bD8466f7B7628fD32F8a8C07f3976c73979", "0x724849ca29166a27cA9a2f03A7EA15C0e8687f7A"];
     const signatureThreshold = 2;
     const tokenAddress = "0x3B22bf17D16B87286Ead98D04f5Db0c3134BD121"; // Example USDT address on mainnet
 
     // Listen for the GroupCreated event
-    contract.once("GroupCreated", (id, name, members) => {
+    contract.on("GroupCreated", (id, name, members) => {
         console.log("Group Created Event:");
         console.log("ID:", id);
         console.log("Name:", name);
@@ -29,6 +29,12 @@ async function createGroup() {
     await tx.wait();
 
     console.log("Group creation transaction hash:", tx.hash);
+
+    // Add a small delay to allow the event listener to capture the event
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
+    // Remove the listener after capturing the event
+    contract.removeAllListeners("GroupCreated");
 }
 
 createGroup()
