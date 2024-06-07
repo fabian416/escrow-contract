@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat';
 
 async function proposeSettle(groupId: string, groupMembers: string[]) {
-    const contractAddress = "0x65E2ca6f0538F3D4c007b2cAe4D357C8EDe4cfDd";
+    const contractAddress = "0x3bD9f27ED60C41471157F4F95823bE43F22D4b90";
     const [signer] = await ethers.getSigners();
     const secondarySigner = new ethers.Wallet("7f570be45d1216529322a12375cb0aa8d7d7d62dc21ee597acb9e9ca71ba2ed7", ethers.provider);
 
@@ -14,20 +14,11 @@ async function proposeSettle(groupId: string, groupMembers: string[]) {
 
     const contract = new ethers.Contract(contractAddress, abi, signer);
 
-    // Escuchar los eventos de depuración
-    contract.on("DebugSigner", (signer, members) => {
-        console.log(`DebugSigner Event - Signer: ${signer}, Members: ${members}`);
-    });
-
-    contract.on("DebugActionHash", (actionHash, groupId, debts, nonce) => {
-        console.log(`DebugActionHash Event - actionHash: ${actionHash}, groupId: ${groupId}, debts: ${debts}, nonce: ${nonce}`);
-    });
-
     const debts = [
         {
             debtor: "0x724849ca29166a27cA9a2f03A7EA15C0e8687f7A",
             creditor: "0xFbC66bD8466f7B7628fD32F8a8C07f3976c73979",
-            amount: ethers.parseUnits("50", 18)
+            amount: 50n * 10n ** 18n // BigInt conversion
         }
     ];
 
@@ -59,6 +50,16 @@ async function proposeSettle(groupId: string, groupMembers: string[]) {
     if (!allSignersAreMembers) {
         throw new Error("One or more signers are not members of the group");
     }
+
+    // Escuchar el evento de depuración
+    contract.on("DebugSigner", (signer, members) => {
+        console.log(`DebugSigner Event - Signer: ${signer}, Members: ${members}`);
+    });
+
+    // Escuchar el evento de depuración del actionHash
+    contract.on("DebugActionHash", (actionHash, groupId, debts, nonce) => {
+        console.log(`DebugActionHash Event - actionHash: ${actionHash}, groupId: ${groupId}, debts: ${debts}, nonce: ${nonce}`);
+    });
 
     try {
         const tx = await contract.settleDebtsWithSignatures(groupId, debts, signatures);
