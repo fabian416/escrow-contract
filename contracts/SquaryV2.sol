@@ -40,7 +40,7 @@ contract SquaryV2 {
     event MemberRemoved(bytes32 indexed groupId, address indexed member);
     event ThresholdChanged(bytes32 indexed groupId, uint256 newThreshold);
     event DebugActionHash(bytes32 actionHash, bytes32 groupId, Debt[] debts, uint256 nonce);
-    event DebugSigner(address debtor, address creditor);
+    event DebugSigner(address signer, address[] members);
 
     constructor(address _usdcTokenAddress, address _usdtTokenAddress, address _daitokenAddress) {
         usdcToken = IERC20(_usdcTokenAddress);
@@ -118,12 +118,12 @@ contract SquaryV2 {
         require(groups[groupId].id != 0, 'Group does not exist');
         require(signatures.length >= groups[groupId].signatureThreshold, 'Insufficient signatures');
 
-        bytes32 actionHash = keccak256(abi.encode(groupId, debts, 'settleDebts', groups[groupId].nonce));
+        bytes32 actionHash = calculateActionHash(groupId, debts, groups[groupId].nonce);
         emit DebugActionHash(actionHash, groupId, debts, groups[groupId].nonce);
 
         for (uint256 i = 0; i < signatures.length; i++) {
             address signer = ECDSA.recover(actionHash, signatures[i]);
-            emit DebugSigner(debts[i].debtor, debts[i].creditor); // Emitir el evento con deudor y acreedor
+            emit DebugSigner(signer, groups[groupId].members);
             require(isMember(groupId, signer), 'Signer is not a member of the group');
         }
 
@@ -136,6 +136,14 @@ contract SquaryV2 {
             groups[groupId].balances[debt.creditor] += int256(debt.amount);
             emit SettleCompleted(groupId, debt.debtor, debt.creditor, debt.amount);
         }
+    }
+
+    function calculateActionHash(bytes32 groupId, Debt[] memory debts, uint256 nonce) public pure returns (bytes32) {
+        bytes32 hash = keccak256(abi.encode(groupId));
+        for (uint256 i = 0; i < debts.length; i++) {
+            hash = keccak256(abi.encode(hash, debts[i].debtor, debts[i].creditor, debts[i].amount));
+        }
+        return keccak256(abi.encode(hash, "settleDebts", nonce));
     }
 
     function addGroupMember(bytes32 groupId, address newMember, bytes[] calldata signatures) public {
@@ -218,10 +226,6 @@ contract SquaryV2 {
 
     function getMemberBalance(bytes32 groupId, address member) public view returns (int256) {
         return groups[groupId].balances[member];
-    }
-
-    function calculateActionHash(bytes32 groupId, Debt[] calldata debts, uint256 nonce) external pure returns (bytes32) {
-        return keccak256(abi.encode(groupId, debts, 'settleDebts', nonce));
     }
 
     function getUserGroups(address user) public view returns (bytes32[] memory) {

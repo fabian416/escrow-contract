@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat';
 
 async function createGroup() {
-    const contractAddress = "0xCDa465c3b8F065C8d4c4412ef0bED5bC8FB4a52D";
+    const contractAddress = "0x9Cb68A6F09BDF1083441fD68777385383fF63a19";
     const [signer] = await ethers.getSigners();
     const abi = [
       {
@@ -79,14 +79,14 @@ async function createGroup() {
           {
             "indexed": false,
             "internalType": "address",
-            "name": "debtor",
+            "name": "signer",
             "type": "address"
           },
           {
             "indexed": false,
-            "internalType": "address",
-            "name": "creditor",
-            "type": "address"
+            "internalType": "address[]",
+            "name": "members",
+            "type": "address[]"
           }
         ],
         "name": "DebugSigner",
@@ -752,11 +752,11 @@ async function createGroup() {
         "stateMutability": "nonpayable",
         "type": "function"
       }
-    ]
+    ];
 
     const contract = new ethers.Contract(contractAddress, abi, signer);
 
-    const groupName = "Jujuy30";
+    const groupName = "Jujuy35";
     const groupMembers = ["0xFbC66bD8466f7B7628fD32F8a8C07f3976c73979", "0x724849ca29166a27cA9a2f03A7EA15C0e8687f7A"];
     const signatureThreshold = 2;
     const tokenAddress = "0x3B22bf17D16B87286Ead98D04f5Db0c3134BD121"; 
@@ -779,7 +779,7 @@ async function createGroup() {
 
     // Remove the listener after capturing the event
     contract.removeAllListeners("GroupCreated");
-}
+  }
 
 createGroup()
     .then(() => process.exit(0))

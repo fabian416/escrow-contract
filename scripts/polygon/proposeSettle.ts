@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat';
 
-async function proposeSettle(groupId: string, groupMembers: string[]) {
-    const contractAddress = "0x077f5Be35540F75040419d86597fC82f2b55aE24";
+async function proposeSettle(groupId, groupMembers) {
+    const contractAddress = "0x9Cb68A6F09BDF1083441fD68777385383fF63a19";
     const [signer] = await ethers.getSigners();
     const secondaryPrivateKey = "7f570be45d1216529322a12375cb0aa8d7d7d62dc21ee597acb9e9ca71ba2ed7";
     const secondarySigner = new ethers.Wallet(secondaryPrivateKey, ethers.provider);
@@ -9,7 +9,7 @@ async function proposeSettle(groupId: string, groupMembers: string[]) {
     const abi = [
         "function settleDebtsWithSignatures(bytes32 groupId, (address debtor, address creditor, uint256 amount)[] debts, bytes[] signatures) public",
         "function getGroupDetails(bytes32 groupId) public view returns (string, address[], uint256)",
-        "function calculateActionHash(bytes32 groupId, (address debtor, address creditor, uint256 amount)[] debts, uint256 nonce) external view returns (bytes32)",
+        "function calculateActionHash(bytes32 groupId, (address debtor, address creditor, uint256 amount)[] debts, uint256 nonce) public pure returns (bytes32)",
         "function getNonce(bytes32 groupId) public view returns (uint256)",
         "event DebugSigner(address debtor, address creditor)",
         "event DebugActionHash(bytes32 actionHash, bytes32 groupId, (address debtor, address creditor, uint256 amount)[] debts, uint256 nonce)"
@@ -28,37 +28,18 @@ async function proposeSettle(groupId: string, groupMembers: string[]) {
     const nonce = await contract.getNonce(groupId);
     console.log("Nonce:", nonce);
 
-    const debtors = debts.map(d => d.debtor);
-    const creditors = debts.map(d => d.creditor);
-    const amounts = debts.map(d => d.amount);
-    const action = "settleDebts";
-
-    console.log("Debtors:", debtors);
-    console.log("Creditors:", creditors);
-    console.log("Amounts:", amounts);
-    console.log("Action:", action);
-    console.log("Nonce:", nonce);
-
-    // Using solidityPack and keccak256 to generate the action hash
-    const encodedDataScript = ethers.solidityPacked(
-        ["bytes32", "address[]", "address[]", "uint256[]", "string", "uint256"],
-        [groupId, debtors, creditors, amounts, action, nonce]
+    // Utilizando defaultAbiCoder.encode con tupla para generar el hash de la acción
+    const actionHashScript = ethers.solidityPackedKeccak256(
+        ["bytes32", "tuple(address debtor, address creditor, uint256 amount)[]", "string", "uint256"],
+        [groupId, debts, "settleDebts", nonce]
     );
-    console.log("Encoded Data (Script):", encodedDataScript);
-
-    const actionHashScript = ethers.keccak256(encodedDataScript);
     console.log("Action Hash (Script):", actionHashScript);
 
     const actionHashContract = await contract.calculateActionHash(groupId, debts, nonce);
     console.log("Action Hash (Contract):", actionHashContract);
 
     if (actionHashScript !== actionHashContract) {
-        console.log("Encoded Data (Script):", encodedDataScript);
-        console.log("Encoded Data (Contract):", ethers.solidityPacked(
-            ["bytes32", "address[]", "address[]", "uint256[]", "string", "uint256"],
-            [groupId, debtors, creditors, amounts, action, nonce]
-        ));
-        throw new Error("Action hashes do not match!");
+        throw new Error("Hashes do not match");
     }
 
     const signature1 = await signer.signMessage(ethers.getBytes(actionHashScript));
