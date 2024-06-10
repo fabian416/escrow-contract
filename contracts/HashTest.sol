@@ -7,6 +7,11 @@ contract HashTest {
         address creditor;
         uint256 amount;
     }
+
+    function getNonce(bytes32 groupId) external pure returns (uint256) {
+        return 1;
+    }
+
     function calculateActionHash(
         bytes32 groupId,
         Debt[] memory debts,
