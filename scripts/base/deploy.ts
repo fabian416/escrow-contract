@@ -2,17 +2,17 @@ import { ethers } from "hardhat";
 
 async function main() {
 
-  const usdcTokenAddress = "0x439b59e41ED27F7B2bF7ed6f72Dd4447B1cAA363";
-  const usdtTokenAddress = "0x3B22bf17D16B87286Ead98D04f5Db0c3134BD121";
+  const usdcTokenAddress = "0x87B6F2A7A9e371f93bBbE75926400699202B8a58";
+  const usdtTokenAddress = "0x8c0a45A1a3442F6Bc3aB553942139BB575036Ab1";
   const daiTokenAddress = "0x75830602E8DE3048C12a73630B6d03cE74ACc643";
 
-  //  get the signer (wallet) that is deploying the contract
+  //  Get the signer (wallet) that is deploying the contract
   const [deployer] = await ethers.getSigners();
 
-  //  print the deployer address and his balance
+  //  Print the deployer address and his balance
   console.log("Deploying contracts with the account:", deployer.address);
 
-  const SquaryFactory = await ethers.getContractFactory("SquaryPolygonTest");
+  const SquaryFactory = await ethers.getContractFactory("SquaryBaseTest");
   const squary = await SquaryFactory.deploy(usdcTokenAddress, usdtTokenAddress, daiTokenAddress);
 
   await squary.waitForDeployment();

@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 
-contract SquaryV2 {
+contract SquaryPolygonTest {
     using ECDSA for bytes32;
     uint256 public groupCounter;
 
@@ -123,7 +123,7 @@ contract SquaryV2 {
 
         for (uint256 i = 0; i < signatures.length; i++) {
             address signer = ECDSA.recover(actionHash, signatures[i]);
-            emit DebugSigner(signer, groups[groupId].members);
+            emit DebugSigner(signer, groups[groupId].members); // Emitir el evento con el signer y los miembros del grupo
             require(isMember(groupId, signer), 'Signer is not a member of the group');
         }
 
@@ -138,16 +138,17 @@ contract SquaryV2 {
         }
     }
 
-    function calculateActionHash(bytes32 groupId, Debt[] memory debts, uint256 nonce) public pure returns (bytes32) {
-        bytes32 hash = keccak256(abi.encode(groupId));
+    function calculateActionHash(bytes32 groupId, Debt[] calldata debts, uint256 nonce) public pure returns (bytes32) {
+        bytes32 hash = keccak256(abi.encodePacked(groupId));
         for (uint256 i = 0; i < debts.length; i++) {
-            hash = keccak256(abi.encode(hash, debts[i].debtor, debts[i].creditor, debts[i].amount));
+            hash = keccak256(abi.encodePacked(hash, debts[i].debtor, debts[i].creditor, debts[i].amount));
         }
-        return keccak256(abi.encode(hash, "settleDebts", nonce));
+        hash = keccak256(abi.encodePacked(hash, 'settleDebts', nonce));
+        return hash;
     }
 
     function addGroupMember(bytes32 groupId, address newMember, bytes[] calldata signatures) public {
-        bytes32 actionHash = keccak256(abi.encode(groupId, 'AddMember', newMember, groups[groupId].nonce));
+        bytes32 actionHash = keccak256(abi.encodePacked(groupId, 'AddMember', newMember, groups[groupId].nonce));
 
         for (uint256 i = 0; i < signatures.length; i++) {
             address signer = ECDSA.recover(actionHash, signatures[i]);
@@ -163,7 +164,7 @@ contract SquaryV2 {
     }
 
     function removeGroupMember(bytes32 groupId, address member, bytes[] calldata signatures) public {
-        bytes32 actionHash = keccak256(abi.encode(groupId, 'RemoveMember', member, groups[groupId].nonce));
+        bytes32 actionHash = keccak256(abi.encodePacked(groupId, 'RemoveMember', member, groups[groupId].nonce));
 
         for (uint256 i = 0; i < signatures.length; i++) {
             address signer = ECDSA.recover(actionHash, signatures[i]);
@@ -184,7 +185,7 @@ contract SquaryV2 {
     }
 
     function changeGroupThreshold(bytes32 groupId, uint256 newThreshold, bytes[] calldata signatures) public {
-        bytes32 actionHash = keccak256(abi.encode(groupId, 'ChangeThreshold', newThreshold, groups[groupId].nonce));
+        bytes32 actionHash = keccak256(abi.encodePacked(groupId, 'ChangeThreshold', newThreshold, groups[groupId].nonce));
 
         for (uint256 i = 0; i < signatures.length; i++) {
             address signer = ECDSA.recover(actionHash, signatures[i]);
@@ -209,19 +210,9 @@ contract SquaryV2 {
         return false;
     }
 
-    function getGroupThreshold(bytes32 groupId) public view returns (uint256) {
-        return groups[groupId].signatureThreshold;
-    }
-
     function getGroupDetails(bytes32 groupId) public view returns (string memory name, address[] memory members, uint256 nonce) {
         Group storage group = groups[groupId];
-
         return (group.name, group.members, group.nonce);
-    }
-
-    function getNonce(bytes32 groupId) public view returns (uint256) {
-        Group storage group = groups[groupId];
-        return group.nonce;
     }
 
     function getMemberBalance(bytes32 groupId, address member) public view returns (int256) {
@@ -230,23 +221,25 @@ contract SquaryV2 {
 
     function getUserGroups(address user) public view returns (bytes32[] memory) {
         uint256 count = 0;
-
         for (uint256 i = 0; i < groupIds.length; i++) {
             if (isMember(groupIds[i], user)) {
                 count++;
             }
         }
 
-        bytes32[] memory userGroupIds = new bytes32[](count);
+        bytes32[] memory userGroups = new bytes32[](count);
         uint256 index = 0;
-
         for (uint256 i = 0; i < groupIds.length; i++) {
             if (isMember(groupIds[i], user)) {
-                userGroupIds[index] = groupIds[i];
+                userGroups[index] = groupIds[i];
                 index++;
             }
         }
 
-        return userGroupIds;
+        return userGroups;
+    }
+
+    function getNonce(bytes32 groupId) public view returns (uint256) {
+        return groups[groupId].nonce;
     }
 }

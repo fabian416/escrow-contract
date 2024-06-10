@@ -1,9 +1,9 @@
 import { ethers } from 'hardhat';
 
 async function createGroup() {
-    const contractAddress = "0x9Cb68A6F09BDF1083441fD68777385383fF63a19";
+    const contractAddress = "0x56cC4aB4101f49E5De730a601d4427846F499cCe";
     const [signer] = await ethers.getSigners();
-    const abi = [
+    const abi =  [
       {
         "inputs": [
           {
@@ -59,7 +59,7 @@ async function createGroup() {
               }
             ],
             "indexed": false,
-            "internalType": "struct SquaryV2.Debt[]",
+            "internalType": "struct SquaryPolygonTest.Debt[]",
             "name": "debts",
             "type": "tuple[]"
           },
@@ -303,7 +303,7 @@ async function createGroup() {
                 "type": "uint256"
               }
             ],
-            "internalType": "struct SquaryV2.Debt[]",
+            "internalType": "struct SquaryPolygonTest.Debt[]",
             "name": "debts",
             "type": "tuple[]"
           },
@@ -693,7 +693,7 @@ async function createGroup() {
                 "type": "uint256"
               }
             ],
-            "internalType": "struct SquaryV2.Debt[]",
+            "internalType": "struct SquaryPolygonTest.Debt[]",
             "name": "debts",
             "type": "tuple[]"
           },
