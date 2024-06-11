@@ -2,7 +2,7 @@ import { ethers } from 'hardhat';
 import ABI from '../../artifacts/contracts/polygon/SquaryPolygonTest.sol/SquaryPolygonTest.json';
 
 async function proposeSettle(groupId, groupMembers) {
-    const contractAddress = "0x56cC4aB4101f49E5De730a601d4427846F499cCe";
+    const contractAddress = "0xfbAf3b7764Ec01bD2AC8ED701cCa183c273E902c";
     const [signer] = await ethers.getSigners();
     const secondaryPrivateKey = "7f570be45d1216529322a12375cb0aa8d7d7d62dc21ee597acb9e9ca71ba2ed7";
     const secondarySigner = new ethers.Wallet(secondaryPrivateKey, ethers.provider);
@@ -20,21 +20,19 @@ async function proposeSettle(groupId, groupMembers) {
     const nonce = await contract.getNonce(groupId);
     console.log("Nonce:", nonce);
 
-    // Usando abi.encodePacked
-    const actionHashScript = ethers.solidityPacked(
-        ["bytes32", "address", "address", "uint256", "string", "uint256"],
-        [
-            groupId,
-            debts[0].debtor,
-            debts[0].creditor,
-            debts[0].amount,
-            "settleDebts",
-            nonce
-        ]
-    );
+    let hash = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(["bytes32"], [groupId]));
+    for (let debt of debts) {
+        hash = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(
+            ["bytes32", "address", "address", "uint256"],
+            [hash, debt.debtor, debt.creditor, debt.amount]
+        ));
+    }
+    const actionHashScript = ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(
+        ["bytes32", "string", "uint256"],
+        [hash, "settleDebts", nonce]
+    ));
 
-    const hashedEncoded = ethers.keccak256(actionHashScript);
-    console.log("Action Hash (Script):", hashedEncoded);
+    console.log("Action Hash Script:", actionHashScript);
 
     const actionHashContract = await contract.calculateActionHash(groupId, debts, nonce);
     console.log("Action Hash (Contract):", actionHashContract);
@@ -52,32 +50,22 @@ async function proposeSettle(groupId, groupMembers) {
     console.log("Group Name:", groupDetails[0]);
     console.log("Group Members:", groupDetails[1]);
 
-    const allSignersAreMembers = signatures.every(signature => {
-        const signerAddress = ethers.verifyMessage(ethers.getBytes(actionHashScript), signature);
-        console.log("Signer Address:", signerAddress);
+    for (const signature of signatures) {
+        const signerAddress = await contract.getSigner(actionHashScript, signature);
+        console.log("Signer Address from Contract:", signerAddress);
         const isMember = groupMembers.includes(signerAddress);
         console.log("Is Member:", isMember);
-        return isMember;
-    });
-
-    if (!allSignersAreMembers) {
-        throw new Error("One or more signers are not members of the group");
+        if (!isMember) {
+            throw new Error("One or more signers are not members of the group");
+        }
     }
-
-    contract.on("DebugSigner", (debtor, creditor) => {
-        console.log(`DebugSigner Event - Debtor: ${debtor}, Creditor: ${creditor}`);
-    });
-
-    contract.on("DebugActionHash", (actionHash, groupId, debts, nonce) => {
-        console.log(`DebugActionHash Event - actionHash: ${actionHash}, groupId: ${groupId}, debts: ${debts}, nonce: ${nonce}`);
-    });
 
     try {
         const tx = await contract.settleDebtsWithSignatures(groupId, debts, signatures);
         await tx.wait();
-        console.log("Transacción completada con éxito:", tx);
+        console.log("Transaction completed successfully:", tx);
     } catch (error) {
-        console.error("Error al ejecutar la transacción:", error);
+        console.error("Error executing transaction:", error);
     }
 }
 

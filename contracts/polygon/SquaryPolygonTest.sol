@@ -39,8 +39,7 @@ contract SquaryPolygonTest {
     event MemberAdded(bytes32 indexed groupId, address indexed newMember);
     event MemberRemoved(bytes32 indexed groupId, address indexed member);
     event ThresholdChanged(bytes32 indexed groupId, uint256 newThreshold);
-    event DebugActionHash(bytes32 actionHash, bytes32 groupId, Debt[] debts, uint256 nonce);
-    event DebugSigner(address signer, address[] members);
+    event LogSigner(address signer);
 
     constructor(address _usdcTokenAddress, address _usdtTokenAddress, address _daitokenAddress) {
         usdcToken = IERC20(_usdcTokenAddress);
@@ -119,11 +118,11 @@ contract SquaryPolygonTest {
         require(signatures.length >= groups[groupId].signatureThreshold, 'Insufficient signatures');
 
         bytes32 actionHash = calculateActionHash(groupId, debts, groups[groupId].nonce);
-        emit DebugActionHash(actionHash, groupId, debts, groups[groupId].nonce);
 
+        
         for (uint256 i = 0; i < signatures.length; i++) {
-            address signer = ECDSA.recover(actionHash, signatures[i]);
-            emit DebugSigner(signer, groups[groupId].members); // Emitir el evento con el signer y los miembros del grupo
+            address signer = getSigner(actionHash, signatures[i]);
+            emit LogSigner(signer);  // Emite el evento para verificar el firmante
             require(isMember(groupId, signer), 'Signer is not a member of the group');
         }
 
@@ -137,21 +136,28 @@ contract SquaryPolygonTest {
             emit SettleCompleted(groupId, debt.debtor, debt.creditor, debt.amount);
         }
     }
-
-    function calculateActionHash(bytes32 groupId, Debt[] calldata debts, uint256 nonce) public pure returns (bytes32) {
-        bytes32 hash = keccak256(abi.encodePacked(groupId));
+     function getSigner(bytes32 actionHash, bytes memory signature) public pure returns (address) {
+        bytes32 ethSignedMessageHash = ECDSA.toEthSignedMessageHash(actionHash);
+        return ECDSA.recover(ethSignedMessageHash, signature);
+    }
+    function calculateActionHash(
+        bytes32 groupId,
+        Debt[] memory debts,
+        uint256 nonce
+    ) public pure returns (bytes32) {
+        bytes32 hash = keccak256(abi.encode(groupId));
         for (uint256 i = 0; i < debts.length; i++) {
-            hash = keccak256(abi.encodePacked(hash, debts[i].debtor, debts[i].creditor, debts[i].amount));
+            hash = keccak256(abi.encode(hash, debts[i].debtor, debts[i].creditor, debts[i].amount));
         }
-        hash = keccak256(abi.encodePacked(hash, 'settleDebts', nonce));
-        return hash;
+        return keccak256(abi.encode(hash, "settleDebts", nonce));
     }
 
     function addGroupMember(bytes32 groupId, address newMember, bytes[] calldata signatures) public {
         bytes32 actionHash = keccak256(abi.encodePacked(groupId, 'AddMember', newMember, groups[groupId].nonce));
+        bytes32 ethSignedMessageHash = ECDSA.toEthSignedMessageHash(actionHash);
 
         for (uint256 i = 0; i < signatures.length; i++) {
-            address signer = ECDSA.recover(actionHash, signatures[i]);
+            address signer = ECDSA.recover(ethSignedMessageHash, signatures[i]);
             require(isMember(groupId, signer), 'Signer is not a member of the group');
         }
 
@@ -165,9 +171,10 @@ contract SquaryPolygonTest {
 
     function removeGroupMember(bytes32 groupId, address member, bytes[] calldata signatures) public {
         bytes32 actionHash = keccak256(abi.encodePacked(groupId, 'RemoveMember', member, groups[groupId].nonce));
+        bytes32 ethSignedMessageHash = ECDSA.toEthSignedMessageHash(actionHash);
 
         for (uint256 i = 0; i < signatures.length; i++) {
-            address signer = ECDSA.recover(actionHash, signatures[i]);
+            address signer = ECDSA.recover(ethSignedMessageHash, signatures[i]);
             require(isMember(groupId, signer), 'Signer is not a member of the group');
         }
 
@@ -186,9 +193,10 @@ contract SquaryPolygonTest {
 
     function changeGroupThreshold(bytes32 groupId, uint256 newThreshold, bytes[] calldata signatures) public {
         bytes32 actionHash = keccak256(abi.encodePacked(groupId, 'ChangeThreshold', newThreshold, groups[groupId].nonce));
+        bytes32 ethSignedMessageHash = ECDSA.toEthSignedMessageHash(actionHash);
 
         for (uint256 i = 0; i < signatures.length; i++) {
-            address signer = ECDSA.recover(actionHash, signatures[i]);
+            address signer = ECDSA.recover(ethSignedMessageHash, signatures[i]);
             require(isMember(groupId, signer), 'Signer is not a member of the group');
         }
 
