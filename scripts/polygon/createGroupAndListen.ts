@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat';
 
 async function createGroup() {
-    const contractAddress = "0xfbAf3b7764Ec01bD2AC8ED701cCa183c273E902c";
+    const contractAddress = "0x4E718B817769a44559628EE3bE8B15D19A116629";
     const [signer] = await ethers.getSigners();
 
     const contract = await ethers.getContractAt("SquaryPolygonTest", contractAddress, signer);

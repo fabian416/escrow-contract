@@ -2,7 +2,7 @@ import { ethers } from 'hardhat';
 import ABI from '../../artifacts/contracts/polygon/SquaryPolygonTest.sol/SquaryPolygonTest.json';
 
 async function proposeSettle(groupId, groupMembers) {
-    const contractAddress = "0xfbAf3b7764Ec01bD2AC8ED701cCa183c273E902c";
+    const contractAddress = "0x4E718B817769a44559628EE3bE8B15D19A116629";
     const [signer] = await ethers.getSigners();
     const secondaryPrivateKey = "7f570be45d1216529322a12375cb0aa8d7d7d62dc21ee597acb9e9ca71ba2ed7";
     const secondarySigner = new ethers.Wallet(secondaryPrivateKey, ethers.provider);
@@ -13,7 +13,7 @@ async function proposeSettle(groupId, groupMembers) {
         {
             debtor: "0x724849ca29166a27cA9a2f03A7EA15C0e8687f7A",
             creditor: "0xFbC66bD8466f7B7628fD32F8a8C07f3976c73979",
-            amount: ethers.parseUnits("50", 18)
+            amount: ethers.parseUnits("100", 18)
         }
     ];
 
@@ -43,6 +43,8 @@ async function proposeSettle(groupId, groupMembers) {
 
     const signature1 = await signer.signMessage(ethers.getBytes(actionHashScript));
     const signature2 = await secondarySigner.signMessage(ethers.getBytes(actionHashScript));
+    console.log("signature 1:", signature1);
+    console.log("signature 2:", signature2);
 
     const signatures = [signature1, signature2];
 
@@ -69,7 +71,7 @@ async function proposeSettle(groupId, groupMembers) {
     }
 }
 
-proposeSettle("0x60b83bcd0ae9839cf9a60b2ae65be9f9f8cc58ed5ab61f4ac0aab76596d79794", ["0xFbC66bD8466f7B7628fD32F8a8C07f3976c73979", "0x724849ca29166a27cA9a2f03A7EA15C0e8687f7A"])
+proposeSettle("0xd1d39d1bf0a2b8f7824b2b412633d124bb5985aa4e6fa9ec973f782ac718c16f", ["0xFbC66bD8466f7B7628fD32F8a8C07f3976c73979", "0x724849ca29166a27cA9a2f03A7EA15C0e8687f7A"])
     .then(() => process.exit(0))
     .catch((error) => {
         console.error(error);
