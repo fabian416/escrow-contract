@@ -2,6 +2,7 @@ const { expect } = require("chai");
 import { ethers } from 'hardhat';
 
 describe("HashTest", function () {
+
     let HashTest, hashTest, groupId, debts, encodeHash, encodePackedHash;
 
     before(async function () {
