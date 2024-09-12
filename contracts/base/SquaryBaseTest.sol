@@ -5,6 +5,12 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 
 contract SquaryBaseTest {
+  error NoZeroAddress();
+  error CallerIsNotMember();
+  error GroupAlreadyExist();
+  error GroupDoesNotExist();
+  error InsufficientSignatures();
+
   using ECDSA for bytes32;
   uint256 public groupCounter;
 
@@ -65,10 +71,7 @@ contract SquaryBaseTest {
   }
 
   modifier onlyMemberOfGroup(bytes32 groupId) {
-    require(
-      isMember(groupId, msg.sender),
-      'Caller is not a member of the group'
-    );
+    if (!isMember(groupId, msg.sender)) revert CallerIsNotMember();
     _;
   }
 
@@ -100,8 +103,8 @@ contract SquaryBaseTest {
     address _tokenAddress
   ) external {
     bytes32 groupId = generateUniqueID(msg.sender, groupCounter, _members);
-    require(_tokenAddress != address(0), 'Invalid token address');
-    require(groups[groupId].id == 0, 'Group already exists');
+    if (_tokenAddress == address(0)) revert NoZeroAddress();
+    if (groups[groupId].id = !0) revert GroupAlreadyExist();
 
     Group storage group = groups[groupId];
     group.id = groupId;
@@ -162,11 +165,9 @@ contract SquaryBaseTest {
     Debt[] calldata debts,
     bytes[] calldata signatures
   ) external {
-    require(groups[groupId].id != 0, 'Group does not exist');
-    require(
-      signatures.length >= groups[groupId].signatureThreshold,
-      'Insufficient signatures'
-    );
+    if (groups[groupId].id == 0) revert GroupDoesNotExist();
+    if (signatures.length < groups[groupId].signatureThreshold)
+      revert InsufficientSignatures();
 
     bytes32 actionHash = calculateActionHash(
       groupId,
@@ -192,6 +193,7 @@ contract SquaryBaseTest {
       emit SettleCompleted(groupId, debt.debtor, debt.creditor, debt.amount);
     }
   }
+
   function getSigner(
     bytes32 actionHash,
     bytes memory signature
@@ -199,6 +201,7 @@ contract SquaryBaseTest {
     bytes32 ethSignedMessageHash = ECDSA.toEthSignedMessageHash(actionHash);
     return ECDSA.recover(ethSignedMessageHash, signature);
   }
+
   function calculateActionHash(
     bytes32 groupId,
     Debt[] memory debts,
@@ -341,9 +344,5 @@ contract SquaryBaseTest {
     }
 
     return userGroups;
-  }
-
-  function getNonce(bytes32 groupId) public view returns (uint256) {
-    return groups[groupId].nonce;
   }
 }
