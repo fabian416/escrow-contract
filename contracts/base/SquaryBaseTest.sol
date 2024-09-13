@@ -10,6 +10,8 @@ contract SquaryBaseTest {
   error GroupAlreadyExist();
   error GroupDoesNotExist();
   error InsufficientSignatures();
+  error InsufficientFundsToWithdraw();
+  error TransferFailed();
 
   using ECDSA for bytes32;
   uint256 public groupCounter;
@@ -148,14 +150,13 @@ contract SquaryBaseTest {
     uint256 amount
   ) external onlyMemberOfGroup(groupId) {
     Group storage group = groups[groupId];
-    require(
-      group.balances[msg.sender] >= int256(amount),
-      'Insufficient funds to withdraw'
-    );
+    if (group.balances[msg.sender] < int256(amount))
+      revert InsufficientFundsToWithdraw();
 
     IERC20 token = IERC20(group.tokenAddress);
 
     require(token.transfer(msg.sender, amount), 'Token transfer failed');
+    if (!token.transfer(msg.sender, amount)) revert TransferFailed();
     group.balances[msg.sender] -= int256(amount);
     emit WithdrawalMade(groupId, msg.sender, amount);
   }
