@@ -178,7 +178,7 @@ contract SquaryBaseTest {
 
     for (uint256 i = 0; i < signatures.length; i++) {
       address signer = getSigner(actionHash, signatures[i]);
-      require(isMember(groupId, signer), 'Signer is not a member of the group');
+      if (!isMember(groupId, signer)) revert CallerIsNotMember();
     }
 
     groups[groupId].nonce++;
@@ -235,7 +235,7 @@ contract SquaryBaseTest {
     groups[groupId].nonce++;
 
     Group storage group = groups[groupId];
-    require(!isMember(groupId, newMember), 'Member already exists');
+    if (isMember(groupId, newMember)) revert MemberAlreadyExist();
     group.members.push(newMember);
     emit MemberAdded(groupId, newMember);
   }
@@ -285,7 +285,7 @@ contract SquaryBaseTest {
 
     for (uint256 i = 0; i < signatures.length; i++) {
       address signer = ECDSA.recover(ethSignedMessageHash, signatures[i]);
-      require(isMember(groupId, signer), 'Signer is not a member of the group');
+      if (!isMember(groupId, signer)) revert CallerIsNotMember();
     }
 
     groups[groupId].nonce++;
