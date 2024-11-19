@@ -58,8 +58,6 @@ contract SquaryBaseTest {
     address indexed creditor,
     uint256 amount
   );
-  event MemberAdded(bytes32 indexed groupId, address indexed newMember);
-  event MemberRemoved(bytes32 indexed groupId, address indexed member);
   event ThresholdChanged(bytes32 indexed groupId, uint256 newThreshold);
 
   constructor(
@@ -83,19 +81,6 @@ contract SquaryBaseTest {
     address[] memory members
   ) private pure returns (bytes32) {
     return keccak256(abi.encodePacked(creator, counter, members));
-  }
-
-  function findMemberIndex(
-    bytes32 groupId,
-    address member
-  ) internal view returns (int256) {
-    Group storage group = groups[groupId];
-    for (uint256 i = 0; i < group.members.length; i++) {
-      if (group.members[i] == member) {
-        return int256(i);
-      }
-    }
-    return -1; // not found
   }
 
   function createGroup(
@@ -217,57 +202,6 @@ contract SquaryBaseTest {
     return keccak256(abi.encode(hash, 'settleDebts', nonce));
   }
 
-  function addGroupMember(
-    bytes32 groupId,
-    address newMember,
-    bytes[] calldata signatures
-  ) public {
-    bytes32 actionHash = keccak256(
-      abi.encodePacked(groupId, 'AddMember', newMember, groups[groupId].nonce)
-    );
-    bytes32 ethSignedMessageHash = ECDSA.toEthSignedMessageHash(actionHash);
-
-    for (uint256 i = 0; i < signatures.length; i++) {
-      address signer = ECDSA.recover(ethSignedMessageHash, signatures[i]);
-      require(isMember(groupId, signer), 'Signer is not a member of the group');
-    }
-
-    groups[groupId].nonce++;
-
-    Group storage group = groups[groupId];
-    if (isMember(groupId, newMember)) revert MemberAlreadyExist();
-    group.members.push(newMember);
-    emit MemberAdded(groupId, newMember);
-  }
-
-  function removeGroupMember(
-    bytes32 groupId,
-    address member,
-    bytes[] calldata signatures
-  ) public {
-    bytes32 actionHash = keccak256(
-      abi.encodePacked(groupId, 'RemoveMember', member, groups[groupId].nonce)
-    );
-    bytes32 ethSignedMessageHash = ECDSA.toEthSignedMessageHash(actionHash);
-
-    for (uint256 i = 0; i < signatures.length; i++) {
-      address signer = ECDSA.recover(ethSignedMessageHash, signatures[i]);
-      require(isMember(groupId, signer), 'Signer is not a member of the group');
-    }
-
-    groups[groupId].nonce++;
-
-    Group storage group = groups[groupId];
-    int256 index = findMemberIndex(groupId, member);
-    require(index != -1, 'Member not found');
-
-    address lastMember = group.members[group.members.length - 1];
-    group.members[uint256(index)] = lastMember;
-    group.members.pop();
-
-    emit MemberRemoved(groupId, member);
-  }
-
   function changeGroupThreshold(
     bytes32 groupId,
     uint256 newThreshold,
@@ -307,6 +241,22 @@ contract SquaryBaseTest {
       }
     }
     return false;
+  }
+
+  function calculateSuggestedPayment(
+    bytes32 groupId,
+    address member
+  ) public view onlyMemberOfGroup(groupId) returns (uint256 suggestedAmount) {
+    // Obtén el balance del miembro en el grupo
+    int256 balance = groups[groupId].balances[member];
+
+    // Si el balance es negativo, devuelve la cantidad necesaria para saldar la deuda
+    if (balance < 0) {
+      return uint256(-balance);
+    }
+
+    // Si no debe nada, devuelve 0
+    return 0;
   }
 
   function getGroupDetails(
