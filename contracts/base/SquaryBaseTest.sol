@@ -91,7 +91,7 @@ contract SquaryBaseTest {
   ) external {
     bytes32 groupId = generateUniqueID(msg.sender, groupCounter, _members);
     if (_tokenAddress == address(0)) revert NoZeroAddress();
-    if (groups[groupId].id = !0) revert GroupAlreadyExist();
+    if (groups[groupId].id != 0) revert GroupAlreadyExist();
 
     Group storage group = groups[groupId];
     group.id = groupId;
