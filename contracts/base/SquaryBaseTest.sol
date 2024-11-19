@@ -37,7 +37,6 @@ contract SquaryBaseTest {
   }
 
   mapping(bytes32 => Group) public groups;
-  mapping(bytes32 => Debt[]) public pendingSettlements;
   bytes32[] public groupIds;
 
   event GroupCreated(bytes32 indexed id, string name, address[] members);
