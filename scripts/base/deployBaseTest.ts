@@ -10,9 +10,9 @@ async function main() {
   const [deployer] = await ethers.getSigners();
 
   //  Print the deployer address and his balance
-  console.log("Deploying contracts with the account:", deployer.address);
+  console.log("Deploying contracts with the account:", deployer);
 
-  const SquaryFactory = await ethers.getContractFactory("SquaryBaseTest");
+  const SquaryFactory = await ethers.getContractFactory("SquaryBaseTest", deployer);
   const squary = await SquaryFactory.deploy(usdcTokenAddress, usdtTokenAddress, daiTokenAddress);
 
   await squary.waitForDeployment();
