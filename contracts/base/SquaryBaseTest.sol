@@ -139,8 +139,8 @@ contract SquaryBaseTest {
 
     IERC20 token = IERC20(group.tokenAddress);
 
-    require(token.transfer(msg.sender, amount), 'Token transfer failed');
     if (!token.transfer(msg.sender, amount)) revert TransferFailed();
+
     group.balances[msg.sender] -= int256(amount);
     emit WithdrawalMade(groupId, msg.sender, amount);
   }
