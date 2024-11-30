@@ -242,22 +242,6 @@ contract SquaryBaseTest {
     return false;
   }
 
-  function calculateSuggestedPayment(
-    bytes32 groupId,
-    address member
-  ) public view onlyMemberOfGroup(groupId) returns (uint256 suggestedAmount) {
-    // Obtén el balance del miembro en el grupo
-    int256 balance = groups[groupId].balances[member];
-
-    // Si el balance es negativo, devuelve la cantidad necesaria para saldar la deuda
-    if (balance < 0) {
-      return uint256(-balance);
-    }
-
-    // Si no debe nada, devuelve 0
-    return 0;
-  }
-
   function getGroupDetails(
     bytes32 groupId
   )
